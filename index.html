@@ -335,6 +335,17 @@
   }
   .btn-submit:hover { background: var(--oscuro); }
 
+  .file-upload-wrap { position: relative; }
+  .file-upload-wrap input[type="file"] { position: absolute; opacity: 0; width: 0; height: 0; }
+  .file-upload-btn {
+    display: inline-block; cursor: pointer;
+    background: rgba(196,82,42,0.08); color: var(--terracota);
+    border: 1.5px dashed rgba(196,82,42,0.4);
+    border-radius: 4px; padding: 0.7rem 1.2rem;
+    font-family: 'Jost', sans-serif; font-size: 0.88rem;
+    transition: all 0.2s; width: 100%; box-sizing: border-box; text-align: center;
+  }
+  .file-upload-btn:hover { background: rgba(196,82,42,0.15); border-color: var(--terracota); }
   .btn-cancel {
     background: transparent;
     color: var(--gris);
@@ -946,8 +957,16 @@
       <!-- NUEVOS CAMPOS: Imagen, Video, Links -->
       <div class="form-row">
         <div class="form-group">
-          <label>🖼️ URL de imagen (opcional)</label>
-          <input type="url" id="post-imagen" placeholder="https://... (link a imagen externa)">
+          <label>🖼️ Imagen del artículo (opcional)</label>
+          <div class="file-upload-wrap">
+            <input type="file" id="post-imagen-file" accept="image/*" onchange="previsualizarImagen(this)">
+            <label for="post-imagen-file" class="file-upload-btn">📁 Elegir imagen desde el dispositivo</label>
+            <div id="imagen-preview-wrap" style="display:none; margin-top:0.7rem;">
+              <img id="imagen-preview" style="max-width:100%; max-height:180px; border-radius:4px; object-fit:cover;">
+              <button type="button" onclick="quitarImagen()" style="display:block; margin-top:0.4rem; background:none; border:none; color:#c0392b; cursor:pointer; font-size:0.85rem;">✕ Quitar imagen</button>
+            </div>
+          </div>
+          <input type="hidden" id="post-imagen">
         </div>
         <div class="form-group">
           <label>🎬 URL de video YouTube/Vimeo (opcional)</label>
@@ -992,7 +1011,7 @@
       <div class="section-tag">¿Quiénes somos?</div>
       <h2>Qhatay — <em style="font-style:italic;color:var(--gold)">Te Cuidamos</em></h2>
       <p>
-        Somos una empresa dedicada al cuidado paliativo y geriátrico, fundada con la convicción de que cada persona merece un acompañamiento digno, amoroso y profesional en las etapas más vulnerables de la vida.
+        Somos un equipo profesional dedicado al cuidado paliativo y geriátrico, unido por la convicción de que cada persona merece un acompañamiento digno, amoroso y especializado en las etapas más vulnerables de la vida.
       </p>
       <p>
         Nuestro nombre <strong style="color:var(--crema)">Qhatay</strong> proviene de la lengua quechua y significa "te cuido" — una promesa que guía cada acción, cada recurso y cada encuentro que generamos.
@@ -1121,7 +1140,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById(id);
     if (el) el.src = LOGO_SRC;
   });
-  function cerrarModal(event) {
+  function previsualizarImagen(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    alert('La imagen es demasiado grande. Por favor usá una imagen menor a 2MB.');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('post-imagen').value = e.target.result;
+    document.getElementById('imagen-preview').src = e.target.result;
+    document.getElementById('imagen-preview-wrap').style.display = 'block';
+    document.querySelector('.file-upload-btn').textContent = '✅ ' + file.name;
+  };
+  reader.readAsDataURL(file);
+}
+
+function quitarImagen() {
+  document.getElementById('post-imagen').value = '';
+  document.getElementById('post-imagen-file').value = '';
+  document.getElementById('imagen-preview-wrap').style.display = 'none';
+  document.querySelector('.file-upload-btn').textContent = '📁 Elegir imagen desde el dispositivo';
+}
+
+function cerrarModal(event) {
   const inner = document.getElementById('modal-inner');
   if (inner && !inner.contains(event.target)) {
     document.getElementById('post-modal').classList.remove('active');
@@ -1134,7 +1178,7 @@ cargarPosts();
 
 // ─── GESTIÓN DE POSTS ───
 let posts = JSON.parse(localStorage.getItem('qhatay_posts') || '[]');
-const ADMIN_PASSWORD = 'qhatay2025';
+const ADMIN_PASSWORD = 'Qhatay2025';
 let adminUnlocked = false;
 
 const postsEjemplo = [
@@ -1189,7 +1233,7 @@ function requestAdminAccess() {
 
 function verificarPassword() {
   const val = document.getElementById('admin-password-input').value;
-  if (val === ADMIN_PASSWORD) {
+  if (val.trim() === ADMIN_PASSWORD) {
     adminUnlocked = true;
     document.getElementById('admin-modal').classList.remove('active');
     toggleForm();
@@ -1453,6 +1497,36 @@ document.addEventListener('keydown', e => {
 
 cargarPosts();
 </script>
+
+<!-- WhatsApp flotante -->
+<a href="https://wa.me/541122522349" target="_blank" rel="noopener" class="whatsapp-float" title="Escribinos por WhatsApp">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="white">
+    <path d="M16 0C7.163 0 0 7.163 0 16c0 2.833.738 5.494 2.027 7.807L0 32l8.418-2.004A15.93 15.93 0 0 0 16 32c8.837 0 16-7.163 16-16S24.837 0 16 0zm0 29.333a13.27 13.27 0 0 1-6.784-1.858l-.486-.29-5.002 1.192 1.237-4.87-.318-.5A13.265 13.265 0 0 1 2.667 16C2.667 8.636 8.636 2.667 16 2.667S29.333 8.636 29.333 16 23.364 29.333 16 29.333zm7.27-9.878c-.398-.199-2.354-1.162-2.72-1.294-.366-.133-.632-.199-.898.199-.266.398-1.031 1.294-1.264 1.56-.233.266-.465.299-.863.1-.398-.2-1.681-.62-3.202-1.977-1.184-1.057-1.983-2.362-2.216-2.76-.233-.398-.025-.613.175-.811.18-.178.398-.465.598-.698.199-.233.266-.398.398-.664.133-.266.067-.498-.033-.697-.1-.2-.898-2.165-1.23-2.963-.325-.778-.655-.673-.898-.686l-.765-.013c-.266 0-.698.1-1.064.498-.366.398-1.397 1.365-1.397 3.33 0 1.964 1.43 3.862 1.629 4.128.2.266 2.814 4.296 6.818 6.026.953.411 1.697.657 2.277.841.957.305 1.828.262 2.516.159.767-.114 2.354-.963 2.687-1.893.333-.93.333-1.727.233-1.893-.1-.166-.366-.266-.765-.465z"/>
+  </svg>
+</a>
+
+<style>
+.whatsapp-float {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #25D366;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(37,211,102,0.4);
+  z-index: 9999;
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-decoration: none;
+}
+.whatsapp-float:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(37,211,102,0.5);
+}
+</style>
 
 </body>
 </html>

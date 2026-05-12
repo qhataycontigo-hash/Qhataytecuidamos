@@ -693,6 +693,25 @@
   .post-media-img { width: 100%; max-height: 320px; object-fit: cover; border-radius: 4px; margin-bottom: 1.2rem; }
   .post-video-wrap { position: relative; padding-bottom: 56.25%; height: 0; margin-bottom: 1.2rem; }
   .post-video-wrap iframe { position: absolute; top:0; left:0; width:100%; height:100%; border-radius:4px; border:none; }
+  .pdf-download-wrap {
+    display: flex; align-items: center; gap: 1rem;
+    background: rgba(196,82,42,0.06);
+    border: 1px solid rgba(196,82,42,0.2);
+    border-radius: 8px; padding: 1rem 1.2rem;
+    margin-top: 1.5rem; flex-wrap: wrap;
+  }
+  .pdf-icon { font-size: 2rem; }
+  .pdf-info { flex: 1; }
+  .pdf-titulo { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gris); margin-bottom: 0.2rem; }
+  .pdf-nombre { font-size: 0.92rem; font-weight: 600; color: var(--oscuro); }
+  .pdf-download-btn {
+    background: var(--terracota); color: white;
+    padding: 0.6rem 1.2rem; border-radius: 4px;
+    text-decoration: none; font-size: 0.85rem;
+    font-family: 'Jost', sans-serif; font-weight: 600;
+    transition: background 0.2s; white-space: nowrap;
+  }
+  .pdf-download-btn:hover { background: #a8411f; }
   .post-links-section { margin-top: 1.5rem; border-top: 1px solid rgba(196,82,42,0.15); padding-top: 1rem; }
   .post-links-section h4 { font-size: 0.85rem; font-weight: 600; color: var(--terracota); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.7rem; }
   .post-link-item { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
@@ -977,6 +996,23 @@
         <label>🔗 Links de referencia (uno por línea, formato: Título|URL)</label>
         <textarea id="post-links" rows="3" placeholder="Sociedad Argentina de Cuidados Paliativos|https://www.sacpas.org.ar&#10;OMS - Cuidados Paliativos|https://www.who.int/..."></textarea>
       </div>
+      <div class="form-group">
+        <label>📄 Adjuntar PDF para descargar (opcional)</label>
+        <div class="file-upload-wrap">
+          <input type="file" id="post-pdf-file" accept="application/pdf" onchange="cargarPDF(this)">
+          <label for="post-pdf-file" class="file-upload-btn">📁 Elegir archivo PDF</label>
+          <div id="pdf-preview-wrap" style="display:none; margin-top:0.7rem; background:rgba(196,82,42,0.06); border-radius:4px; padding:0.7rem 1rem; display:none; align-items:center; gap:0.7rem;">
+            <span style="font-size:1.5rem;">📄</span>
+            <div style="flex:1;">
+              <div id="pdf-nombre" style="font-size:0.88rem; font-weight:600; color:var(--oscuro);"></div>
+              <div id="pdf-tamaño" style="font-size:0.78rem; color:var(--gris);"></div>
+            </div>
+            <button type="button" onclick="quitarPDF()" style="background:none; border:none; color:#c0392b; cursor:pointer; font-size:0.85rem;">✕</button>
+          </div>
+        </div>
+        <input type="hidden" id="post-pdf">
+        <input type="hidden" id="post-pdf-nombre">
+      </div>
 
       <div class="form-row">
         <div class="form-group">
@@ -1126,6 +1162,7 @@
       <div id="modal-contenido"></div>
       <div class="modal-tags" id="modal-tags"></div>
       <div id="modal-links"></div>
+      <div id="modal-pdf"></div>
     </div>
   </div>
 </div>
@@ -1156,6 +1193,37 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelector('.file-upload-btn').textContent = '✅ ' + file.name;
   };
   reader.readAsDataURL(file);
+}
+
+function cargarPDF(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    alert('El PDF es demasiado grande. Por favor usá un archivo menor a 5MB.');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('post-pdf').value = e.target.result;
+    document.getElementById('post-pdf-nombre').value = file.name;
+    document.getElementById('pdf-nombre').textContent = file.name;
+    const kb = (file.size / 1024).toFixed(0);
+    const mb = (file.size / 1024 / 1024).toFixed(2);
+    document.getElementById('pdf-tamaño').textContent = file.size > 1024*1024 ? mb + ' MB' : kb + ' KB';
+    const wrap = document.getElementById('pdf-preview-wrap');
+    wrap.style.display = 'flex';
+    document.querySelector('label[for="post-pdf-file"]').textContent = '✅ ' + file.name;
+  };
+  reader.readAsDataURL(file);
+}
+
+function quitarPDF() {
+  document.getElementById('post-pdf').value = '';
+  document.getElementById('post-pdf-nombre').value = '';
+  document.getElementById('post-pdf-file').value = '';
+  document.getElementById('pdf-preview-wrap').style.display = 'none';
+  document.querySelector('label[for="post-pdf-file"]').textContent = '📁 Elegir archivo PDF';
 }
 
 function quitarImagen() {
@@ -1324,6 +1392,8 @@ function publicarPost() {
     imagen: document.getElementById('post-imagen').value.trim(),
     video: document.getElementById('post-video').value.trim(),
     links,
+    pdf: document.getElementById('post-pdf').value,
+    pdfNombre: document.getElementById('post-pdf-nombre').value,
     autor: document.getElementById('post-autor').value.trim() || 'Qhatay',
     fecha: new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }),
     tags: document.getElementById('post-tags').value.split(',').map(t => t.trim()).filter(Boolean)
@@ -1333,11 +1403,13 @@ function publicarPost() {
   localStorage.setItem('qhatay_posts', JSON.stringify(posts));
 
   // Limpiar formulario
-  ['post-titulo','post-extracto','post-contenido','post-imagen','post-video','post-links','post-autor','post-tags'].forEach(id => {
+  ['post-titulo','post-extracto','post-contenido','post-imagen','post-video','post-links','post-autor','post-tags','post-pdf','post-pdf-nombre'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
   document.getElementById('post-categoria').selectedIndex = 0;
+  quitarPDF();
+  quitarImagen();
 
   toggleForm();
   renderPosts();
@@ -1477,6 +1549,24 @@ function abrirPost(index) {
       linksEl.innerHTML = `<div class="post-links-section"><h4>🔗 Referencias y recursos</h4>${p.links.map(l=>`<div class="post-link-item">🔗 <a href="${l.url}" target="_blank" rel="noopener">${l.titulo}</a></div>`).join('')}</div>`;
     } else {
       linksEl.innerHTML = '';
+    }
+  }
+
+  // PDF descargable
+  const pdfEl = document.getElementById('modal-pdf');
+  if (pdfEl) {
+    if (p.pdf && p.pdfNombre) {
+      pdfEl.innerHTML = `
+        <div class="pdf-download-wrap">
+          <span class="pdf-icon">📄</span>
+          <div class="pdf-info">
+            <div class="pdf-titulo">Material descargable</div>
+            <div class="pdf-nombre">${p.pdfNombre}</div>
+          </div>
+          <a href="${p.pdf}" download="${p.pdfNombre}" class="pdf-download-btn">⬇ Descargar PDF</a>
+        </div>`;
+    } else {
+      pdfEl.innerHTML = '';
     }
   }
 

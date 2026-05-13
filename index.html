@@ -1241,54 +1241,87 @@ function cerrarModal(event) {
   }
 }
 
-cargarPosts();
 });
 
-// ─── GESTIÓN DE POSTS ───
-let posts = JSON.parse(localStorage.getItem('qhatay_posts') || '[]');
+// ─── GESTIÓN DE POSTS (Contentful) ───
+
+// ─── CONTENTFUL CONFIG ───
+const CONTENTFUL_SPACE = 'vjd234s1esiq';
+const CONTENTFUL_TOKEN = 'CpAsQo9QUAeuRaLTgXCXXxrKFXUlW8JBeO4AHiqZqig';
+const CONTENTFUL_URL = `https://cdn.contentful.com/spaces/${CONTENTFUL_SPACE}/entries?content_type=blogPost&order=-sys.createdAt`;
+
 const ADMIN_PASSWORD = 'Qhatay2025';
 let adminUnlocked = false;
+let posts = [];
 
-const postsEjemplo = [
-  {
-    id: 1,
-    titulo: "¿Qué es el cuidado paliativo y cuándo es el momento de solicitarlo?",
-    categoria: "Cuidado Paliativo",
-    extracto: "Muchas familias desconocen que los cuidados paliativos pueden comenzar mucho antes de que la situación sea crítica. Conocé en qué consisten y cómo pueden mejorar la calidad de vida.",
-    contenido: "Los cuidados paliativos son un enfoque especializado de la atención médica centrado en proporcionar alivio del dolor y los síntomas de una enfermedad grave. El objetivo es mejorar la calidad de vida tanto del paciente como de su familia.\n\nUn error frecuente es pensar que los cuidados paliativos son solo para los últimos días de vida. En realidad, pueden —y deben— iniciarse mucho antes. Desde el diagnóstico de una enfermedad crónica o avanzada, el equipo de cuidados paliativos puede trabajar junto al médico tratante para controlar síntomas, dar apoyo emocional y orientar a la familia.\n\n¿Cuándo solicitarlos? Cuando exista una enfermedad grave con síntomas que afectan la calidad de vida: dolor, disnea, náuseas, ansiedad o fatiga que no responden al tratamiento habitual.\n\nEn Qhatay trabajamos con equipos interdisciplinarios: médicos, enfermeros, psicólogos y trabajadores sociales. El objetivo siempre es el mismo: acompañar con dignidad.",
-    autor: "Equipo Qhatay",
-    fecha: "15 Enero 2025",
-    tags: ["cuidado paliativo", "salud", "calidad de vida"]
-  },
-  {
-    id: 2,
-    titulo: "El rol del cuidador familiar: herramientas para no agotarse en el camino",
-    categoria: "Familia & Cuidadores",
-    extracto: "Cuidar a un ser querido es un acto de amor profundo, pero también puede ser agotador. Compartimos estrategias concretas para sostener el cuidado sin perder tu propio bienestar.",
-    contenido: "Ser cuidador familiar es una tarea que pocas personas eligen de manera consciente: simplemente se va dando, a medida que el ser querido necesita más ayuda. Y muchas veces, quien cuida termina descuidándose a sí mismo.\n\nAlgunas señales de agotamiento del cuidador incluyen: irritabilidad constante, insomnio, sensación de tristeza o vacío, y abandono de actividades propias.\n\nEstrategias que ayudan:\n\n• Pedir ayuda y delegarla: no todo tiene que recaer en una sola persona.\n• Respetar los propios tiempos: salir, descansar, hacer actividades placenteras.\n• Unirse a grupos de apoyo para cuidadores.\n• Buscar orientación profesional cuando la carga emocional es muy grande.\n\nEn Qhatay ofrecemos espacios de contención y orientación para las familias que acompañan a sus seres queridos. Recordá: para cuidar bien a otro, primero tenés que cuidarte a vos mismo.",
-    autor: "Lic. Ana Torres",
-    fecha: "8 Enero 2025",
-    tags: ["cuidadores", "familia", "bienestar", "autocuidado"]
-  },
-  {
-    id: 3,
-    titulo: "Comunicación en el final de vida: cómo hablar de lo que importa",
-    categoria: "Cuidado Paliativo",
-    extracto: "Hablar sobre la muerte y el proceso de final de vida puede parecer un tabú. Sin embargo, estas conversaciones son un acto de amor y una herramienta fundamental para el bienestar de todos.",
-    contenido: "Una de las mayores dificultades en el acompañamiento paliativo es la comunicación. Las familias evitan hablar de la muerte por miedo a causar dolor, y los pacientes muchas veces callan sus deseos para no angustiar a sus seres queridos. Este silencio, aunque bien intencionado, puede generar más sufrimiento.\n\n¿Por qué es importante hablar?\n\nCuando se expresan los deseos y se aclaran los miedos, el proceso se vuelve más llevadero para todos. El paciente puede participar en las decisiones sobre su propio cuidado, y la familia puede acompañar con más calma.\n\nAlgunos puntos de partida para iniciar la conversación:\n\n• Elegir un momento tranquilo, sin urgencias.\n• Empezar con preguntas abiertas: '¿Cómo te sentís?', '¿Hay algo que te preocupe?'\n• Escuchar más de lo que se habla.\n• No intentar resolver ni 'curar' las emociones del otro.\n\nEn Qhatay podemos acompañar estas conversaciones con el apoyo de nuestro equipo.",
-    autor: "Equipo Qhatay",
-    fecha: "2 Enero 2025",
-    tags: ["comunicación", "final de vida", "emociones", "familia"]
-  }
-];
+// ─── CARGAR POSTS DESDE CONTENTFUL ───
+async function cargarPosts() {
+  const grid = document.getElementById('blog-grid');
+  grid.innerHTML = `
+    <div class="blog-empty" style="grid-column:1/-1">
+      <div class="blog-empty-icon" style="animation: pulse 1.2s infinite;">🌿</div>
+      <h3>Cargando artículos...</h3>
+    </div>`;
 
-function cargarPosts() {
-  if (posts.length === 0 && !localStorage.getItem('qhatay_posts_init')) {
-    posts = postsEjemplo;
-    localStorage.setItem('qhatay_posts', JSON.stringify(posts));
-    localStorage.setItem('qhatay_posts_init', '1');
+  try {
+    const res = await fetch(`${CONTENTFUL_URL}`, {
+      headers: { 'Authorization': `Bearer ${CONTENTFUL_TOKEN}` }
+    });
+
+    if (!res.ok) throw new Error('Error al conectar con Contentful');
+
+    const data = await res.json();
+
+    // Mapear assets para imágenes y PDFs
+    const assets = {};
+    if (data.includes && data.includes.Asset) {
+      data.includes.Asset.forEach(asset => {
+        assets[asset.sys.id] = 'https:' + asset.fields.file.url;
+      });
+    }
+
+    posts = (data.items || []).map(item => {
+      const f = item.fields;
+      // Resolver imagen (Media field)
+      let imagenUrl = '';
+      if (f.imagen && f.imagen.sys && assets[f.imagen.sys.id]) {
+        imagenUrl = assets[f.imagen.sys.id];
+      }
+      // Resolver PDF (Media field)
+      let pdfUrl = '';
+      let pdfNombre = '';
+      if (f.pdf && f.pdf.sys && assets[f.pdf.sys.id]) {
+        pdfUrl = assets[f.pdf.sys.id];
+        pdfNombre = f.pdf.sys.id;
+      }
+
+      return {
+        id: item.sys.id,
+        titulo: f.titulo || '',
+        categoria: f.categoria || 'General',
+        extracto: f.extracto || '',
+        contenido: f.contenido || '',
+        imagen: imagenUrl,
+        video: f.video || '',
+        pdf: pdfUrl,
+        pdfNombre: pdfNombre,
+        autor: f.autor || 'Qhatay',
+        fecha: new Date(item.sys.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }),
+        tags: Array.isArray(f.tags) ? f.tags : []
+      };
+    });
+
+    renderPosts();
+
+  } catch (err) {
+    console.error('Contentful error:', err);
+    grid.innerHTML = `
+      <div class="blog-empty" style="grid-column:1/-1">
+        <div class="blog-empty-icon">📡</div>
+        <h3>No se pudieron cargar los artículos</h3>
+        <p>Verificá tu conexión a internet e intentá recargar la página.</p>
+      </div>`;
   }
-  renderPosts();
 }
 
 // ─── ADMIN / CONTRASEÑA ───
@@ -1304,12 +1337,57 @@ function verificarPassword() {
   if (val.trim() === ADMIN_PASSWORD) {
     adminUnlocked = true;
     document.getElementById('admin-modal').classList.remove('active');
-    toggleForm();
+    // Redirigir a Contentful para crear post
+    window.open('https://app.contentful.com', '_blank');
+    mostrarMensajeContentful();
   } else {
     document.getElementById('admin-error').style.display = 'block';
     document.getElementById('admin-password-input').value = '';
     document.getElementById('admin-password-input').focus();
   }
+}
+
+function mostrarMensajeContentful() {
+  const panel = document.getElementById('blog-form');
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="admin-badge">🔐 Modo Administrador</div>
+    <div style="text-align:center; padding: 2rem 1rem;">
+      <div style="font-size:2.5rem; margin-bottom:1rem;">🌿</div>
+      <h3 style="font-family:'Cormorant Garamond',serif; font-size:1.4rem; color:var(--oscuro); margin-bottom:0.8rem;">
+        Para crear un artículo nuevo
+      </h3>
+      <p style="color:var(--gris); font-size:0.9rem; line-height:1.8; margin-bottom:1.5rem;">
+        Los artículos se gestionan desde <strong>Contentful</strong>.<br>
+        Se abrió una nueva pestaña con el panel de administración.<br>
+        Creá el artículo ahí y la página se actualizará automáticamente.
+      </p>
+      <a href="https://app.contentful.com" target="_blank" 
+         style="background:var(--terracota); color:white; padding:0.8rem 1.8rem; text-decoration:none;
+                font-size:0.85rem; letter-spacing:0.1em; text-transform:uppercase; border-radius:2px; display:inline-block;">
+        Abrir Contentful
+      </a>
+      <button onclick="ocultarFormAdmin()" 
+              style="margin-left:1rem; background:transparent; border:1px solid rgba(138,122,110,0.3);
+                     color:var(--gris); padding:0.8rem 1.5rem; font-family:'Jost',sans-serif;
+                     font-size:0.85rem; cursor:pointer; border-radius:2px;">
+        Cerrar
+      </button>
+      <div style="margin-top:1.5rem; padding:1rem; background:rgba(196,82,42,0.05); border-radius:4px; font-size:0.82rem; color:var(--gris); line-height:1.8;">
+        <strong style="color:var(--terracota);">Cómo crear un artículo en Contentful:</strong><br>
+        1. Abrí Contentful → <em>Content</em> → <em>Add entry</em> → <em>BlogPost</em><br>
+        2. Completá los campos: título, extracto, contenido, categoría<br>
+        3. Subí imagen o PDF si querés<br>
+        4. Tocá <em>Publish</em> y el artículo aparecerá en tu página
+      </div>
+    </div>`;
+}
+
+function ocultarFormAdmin() {
+  const panel = document.getElementById('blog-form');
+  panel.style.display = 'none';
+  // Recargar posts para mostrar cambios recientes
+  cargarPosts();
 }
 
 function cerrarAdminModal() {
@@ -1318,10 +1396,8 @@ function cerrarAdminModal() {
 
 function toggleForm() {
   const panel = document.getElementById('blog-form');
-  panel.classList.toggle('active');
-  if (panel.classList.contains('active')) {
-    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  const isVisible = panel.style.display === 'block';
+  panel.style.display = isVisible ? 'none' : 'block';
 }
 
 // ─── BUSQUEDA ───
@@ -1335,7 +1411,7 @@ function filtrarPosts() {
 
   const filtered = posts.filter(p => {
     const matchCat = !cat || p.categoria === cat;
-    const matchQuery = !query || 
+    const matchQuery = !query ||
       p.titulo.toLowerCase().includes(query) ||
       (p.extracto || '').toLowerCase().includes(query) ||
       (p.contenido || '').toLowerCase().includes(query) ||
@@ -1365,57 +1441,6 @@ function limpiarBusqueda() {
   renderPosts();
 }
 
-// ─── PUBLICAR ───
-function publicarPost() {
-  const titulo = document.getElementById('post-titulo').value.trim();
-  const extracto = document.getElementById('post-extracto').value.trim();
-  const contenido = document.getElementById('post-contenido').value.trim();
-
-  if (!titulo || !extracto || !contenido) {
-    alert('Por favor completá los campos obligatorios: título, extracto y contenido.');
-    return;
-  }
-
-  // Procesar links de referencia
-  const linksRaw = document.getElementById('post-links').value.trim();
-  const links = linksRaw ? linksRaw.split('\n').map(l => {
-    const parts = l.split('|');
-    return { titulo: parts[0] ? parts[0].trim() : l, url: parts[1] ? parts[1].trim() : '' };
-  }).filter(l => l.url) : [];
-
-  const nuevoPost = {
-    id: Date.now(),
-    titulo,
-    categoria: document.getElementById('post-categoria').value,
-    extracto,
-    contenido,
-    imagen: document.getElementById('post-imagen').value.trim(),
-    video: document.getElementById('post-video').value.trim(),
-    links,
-    pdf: document.getElementById('post-pdf').value,
-    pdfNombre: document.getElementById('post-pdf-nombre').value,
-    autor: document.getElementById('post-autor').value.trim() || 'Qhatay',
-    fecha: new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }),
-    tags: document.getElementById('post-tags').value.split(',').map(t => t.trim()).filter(Boolean)
-  };
-
-  posts.unshift(nuevoPost);
-  localStorage.setItem('qhatay_posts', JSON.stringify(posts));
-
-  // Limpiar formulario
-  ['post-titulo','post-extracto','post-contenido','post-imagen','post-video','post-links','post-autor','post-tags','post-pdf','post-pdf-nombre'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  document.getElementById('post-categoria').selectedIndex = 0;
-  quitarPDF();
-  quitarImagen();
-
-  toggleForm();
-  renderPosts();
-  document.getElementById('blog-grid').scrollIntoView({ behavior: 'smooth' });
-}
-
 // ─── RENDER ───
 function renderPosts(lista) {
   const grid = document.getElementById('blog-grid');
@@ -1426,7 +1451,7 @@ function renderPosts(lista) {
       <div class="blog-empty">
         <div class="blog-empty-icon">📝</div>
         <h3>Aún no hay artículos publicados</h3>
-        <p>Hacé clic en "Nuevo artículo" para crear el primer post del blog.</p>
+        <p>Los artículos se crean desde Contentful y aparecen acá automáticamente.</p>
       </div>`;
     return;
   }
@@ -1435,7 +1460,9 @@ function renderPosts(lista) {
     const realIndex = posts.indexOf(p);
     return `
     <div class="blog-card" onclick="abrirPost(${realIndex})">
-      ${p.imagen ? `<div class="blog-card-img" style="background-image:url('${p.imagen}'); background-size:cover; background-position:center; min-height:160px;"></div>` : `<div class="blog-card-img">${getCatIcon(p.categoria)}</div>`}
+      ${p.imagen
+        ? `<div class="blog-card-img" style="background-image:url('${p.imagen}'); background-size:cover; background-position:center; min-height:160px;"></div>`
+        : `<div class="blog-card-img">${getCatIcon(p.categoria)}</div>`}
       <div class="blog-card-body">
         <div class="blog-card-cat">${p.categoria}</div>
         <div class="blog-card-title">${p.titulo}</div>
@@ -1443,9 +1470,6 @@ function renderPosts(lista) {
         ${p.tags && p.tags.length ? `<div style="margin-top:0.4rem;">${p.tags.map(t=>`<span style="font-size:0.75rem;color:var(--terracota);margin-right:0.4rem;">#${t}</span>`).join('')}</div>` : ''}
         <div class="blog-card-meta">
           <span>📅 ${p.fecha} · ${p.autor || 'Qhatay'}</span>
-          <div class="blog-card-actions" onclick="event.stopPropagation()">
-            <button class="btn-icon delete" onclick="pedirEliminar(${realIndex})" title="Eliminar">🗑️</button>
-          </div>
         </div>
       </div>
     </div>`;
@@ -1459,28 +1483,6 @@ function getCatIcon(cat) {
     'Recursos': '🔖', 'Noticias': '📰'
   };
   return icons[cat] || '📝';
-}
-
-// ─── ELIMINAR con contraseña ───
-function pedirEliminar(index) {
-  if (adminUnlocked) {
-    eliminarPost(index);
-  } else {
-    const pw = prompt('Ingresá la contraseña de administrador para eliminar:');
-    if (pw === ADMIN_PASSWORD) {
-      eliminarPost(index);
-    } else if (pw !== null) {
-      alert('Contraseña incorrecta.');
-    }
-  }
-}
-
-function eliminarPost(index) {
-  if (confirm('¿Eliminar este artículo?')) {
-    posts.splice(index, 1);
-    localStorage.setItem('qhatay_posts', JSON.stringify(posts));
-    filtrarPosts();
-  }
 }
 
 // ─── ABRIR POST / MODAL ───
@@ -1505,6 +1507,7 @@ function getVideoEmbed(url) {
 
 function abrirPost(index) {
   const p = posts[index];
+  if (!p) return;
   document.getElementById('modal-cat').textContent = p.categoria;
   document.getElementById('modal-title').textContent = p.titulo;
   document.getElementById('modal-meta').innerHTML = `
@@ -1512,62 +1515,44 @@ function abrirPost(index) {
     <span>✍️ ${p.autor || 'Qhatay'}</span>
   `;
 
-  // Imagen destacada
   const imgEl = document.getElementById('modal-imagen');
   if (imgEl) {
-    if (p.imagen) {
-      imgEl.src = p.imagen; imgEl.style.display = 'block';
-    } else {
-      imgEl.style.display = 'none';
-    }
+    if (p.imagen) { imgEl.src = p.imagen; imgEl.style.display = 'block'; }
+    else { imgEl.style.display = 'none'; }
   }
 
-  // Video embed
   const videoEl = document.getElementById('modal-video');
-  if (videoEl) {
-    videoEl.innerHTML = p.video ? getVideoEmbed(p.video) : '';
-  }
+  if (videoEl) { videoEl.innerHTML = p.video ? getVideoEmbed(p.video) : ''; }
 
   const contenidoEl = document.getElementById('modal-contenido');
-  contenidoEl.innerHTML = p.contenido
+  contenidoEl.innerHTML = (p.contenido || '')
     .split('\n\n')
     .filter(Boolean)
     .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
     .join('');
 
-  // Tags
   const tagsEl = document.getElementById('modal-tags');
   if (tagsEl) {
     tagsEl.innerHTML = p.tags && p.tags.length
       ? p.tags.map(t => `<span class="modal-tag">#${t}</span>`).join('') : '';
   }
 
-  // Links de referencia
   const linksEl = document.getElementById('modal-links');
-  if (linksEl) {
-    if (p.links && p.links.length) {
-      linksEl.innerHTML = `<div class="post-links-section"><h4>🔗 Referencias y recursos</h4>${p.links.map(l=>`<div class="post-link-item">🔗 <a href="${l.url}" target="_blank" rel="noopener">${l.titulo}</a></div>`).join('')}</div>`;
-    } else {
-      linksEl.innerHTML = '';
-    }
-  }
+  if (linksEl) { linksEl.innerHTML = ''; }
 
-  // PDF descargable
   const pdfEl = document.getElementById('modal-pdf');
   if (pdfEl) {
-    if (p.pdf && p.pdfNombre) {
+    if (p.pdf) {
       pdfEl.innerHTML = `
         <div class="pdf-download-wrap">
           <span class="pdf-icon">📄</span>
           <div class="pdf-info">
             <div class="pdf-titulo">Material descargable</div>
-            <div class="pdf-nombre">${p.pdfNombre}</div>
+            <div class="pdf-nombre">Documento adjunto</div>
           </div>
-          <a href="${p.pdf}" download="${p.pdfNombre}" class="pdf-download-btn">⬇ Descargar PDF</a>
+          <a href="${p.pdf}" target="_blank" class="pdf-download-btn">⬇ Descargar PDF</a>
         </div>`;
-    } else {
-      pdfEl.innerHTML = '';
-    }
+    } else { pdfEl.innerHTML = ''; }
   }
 
   document.getElementById('post-modal').classList.add('active');
